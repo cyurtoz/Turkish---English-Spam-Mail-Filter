@@ -1,83 +1,101 @@
-from __future__ import print_function, division
-import nltk
-import os
-import random
-from collections import Counter
-from nltk import word_tokenize, WordNetLemmatizer
-from nltk.corpus import stopwords
 from nltk import NaiveBayesClassifier, classify
-import feedparser
-import EnglishProcessor
 import TurkishProcessor as tp
-import util as util
+import EnglishProcessor as en
+import Util as util 
+import sys
+from langid.langid import LanguageIdentifier, model
 
- 
-def init_lists(folder):
-    a_list = []
-    file_list = os.listdir(folder)
-    for a_file in file_list:
-        f = open(folder + a_file, 'r', encoding='utf-8', errors='ignore')
-        a_list.append(f.read())
-    f.close()
-    return a_list
- 
-def preprocess(sentence):
-    lemmatizer = WordNetLemmatizer()
-    return [lemmatizer.lemmatize(word.lower()) for word in word_tokenize(str(sentence).encode('utf-8').decode())]
- 
-def get_features(text, setting, processor):
-    if setting=='bow':
-        return {word: count for word, count in Counter(processor.preprocess(text)).items() if processor.isStopWord(word) == False}
-    else:
-        return {word: True for word in processor.preprocess(text) if processor.isStopWord(word) == False}
+def run(classifier, setting, zemberek):
+    while True:
+        print("Enter email (type -q to exit): ")
+        buffer = []
+        run=True
+        while run:
+            line = sys.stdin.readline().rstrip('\n')
+            if line == '-q':
+                run = False
+                print("Processing mail...")
+            else:
+                buffer.append(line)
+        strr = ' '.join(buffer)
+        identifier = LanguageIdentifier.from_modelstring(model, norm_probs=True)
+        result = identifier.classify(strr)
+        if result[0] == 'tr':
+            print("TURKISH input!")
+            if zemberek == True:
+                features = util.extractFeaturesWZemberek(strr, setting, tp)
+            else : 
+                features = util.extractFeatures(strr, setting, tp)
+        else :
+            print("EN input!")
+            features = util.extractFeatures(strr, setting, en)
+            
+        if (len(features) == 0):
+            break
+        print (classifier.classify(features))
  
 def train(features, samples_proportion):
     train_size = int(len(features) * samples_proportion)
-    # initialise the training and test sets
     train_set, test_set = features[:train_size], features[train_size:]
     print ('Training set size = ' + str(len(train_set)) + ' emails')
     print ('Test set size = ' + str(len(test_set)) + ' emails')
-    # train the classifier
     classifier = NaiveBayesClassifier.train(train_set)
     return train_set, test_set, classifier
  
-def evaluate(train_set, test_set, classifier):
-    # check how the classifier performs on the training and test sets
-    print ('Accuracy on the training set = ' + str(classify.accuracy(classifier, train_set)))
-    print ('Accuracy of the test set = ' + str(classify.accuracy(classifier, test_set)))
-    # check which words are most informative for the classifier
-    classifier.show_most_informative_features(50)
- 
 if __name__ == "__main__":
-    # initialise the data
-    all_emails = []
-    tr_emails = []
-    #spam_en = util.extractEmlMails('/Users/cyurtoz/Downloads/SH/SA/20030228_spam_2/')
-    #ham_en = util.parseTxtFiles('/Users/cyurtoz/Downloads/enron4/ham/')
-    spam_tr = tp.parseTurkishFiles('/Users/cyurtoz/Workspace/turkish_english_spam_mail_filter/data/turkish/spam/Training_DB/')
-    ham_tr = tp.parseTurkishFiles('/Users/cyurtoz/Workspace/turkish_english_spam_mail_filter/data/turkish/ham/Training_DB/')
-    spam_tr_test = tp.parseTurkishFiles('/Users/cyurtoz/Workspace/turkish_english_spam_mail_filter/data/turkish/spam/Test_DB/')
-    ham_tr_test = tp.parseTurkishFiles('/Users/cyurtoz/Workspace/turkish_english_spam_mail_filter/data/turkish/ham/Test_DB/')
-    #all_emails = [(email, 'spam') for email in spam_en]
-    #all_emails += [(email, 'ham') for email in ham_en]
-    tr_emails += [(email, 'ham', 'tr') for email in ham_tr]
-    tr_emails += [(email, 'spam', 'tr') for email in spam_tr]
-    tr_emails += [(email, 'ham', 'tr') for email in ham_tr_test]
-    tr_emails += [(email, 'spam', 'tr') for email in spam_tr_test]
+        
+    mode = ''
+    if 'bow' in str(sys.argv):
+        mode = 'bow'
+        print('Bag of words model')
     
-    all_emails += tr_emails 
+    zemberek = False
+    if 'zemberek' in str(sys.argv):
+        zemberek = True
+        print('Extracting Turkish features with Zemberek!')
     
-    random.shuffle(all_emails)
-    print ('Corpus size = ' + str(len(all_emails)) + ' emails')
- 
-    # extract the features
+    allMails = []
+    turkishMails = []
+    englishMails = []
+    spam_en = util.extractEmlMails('data/english/spamassassin/spam/')
+    spam_en += util.extractEmlMails('data/english/spamassassin/spam_2/')
+    ham_en = util.extractEmlMails('data/english/cscdm/ham/')
+    ham_en = []
+    ham_en += util.extractEmlMails('data/english/spamassassin/easy_ham/')
+    ham_en += util.extractEmlMails('data/english/spamassassin/hard_ham/')
+    spam_tr = tp.parseTurkishFiles('data/turkish/spam/training/')
+    ham_tr = tp.parseTurkishFiles('data/turkish/ham/training/')
+
+    englishMails = [(email, 'spam') for email in spam_en]
+    englishMails += [(email, 'ham') for email in ham_en]
+    
+    turkishMails += [(email, 'ham') for email in ham_tr]
+    turkishMails += [(email, 'spam') for email in spam_tr]
+    
+    allMails += turkishMails
+    allMails += englishMails
+    
+    util.randomize(allMails)
+    print ('TR Data size = spam: ' + str(len(spam_tr)) + ' ham: ' + str(len(ham_tr)) + ' total: ' + str(len(turkishMails)) + ' emails')
+    print ('EN Data size = spam: ' + str(len(spam_en)) + ' ham: ' + str(len(ham_en)) + ' total: ' + str(len(englishMails)) + ' emails')
+    print ('ALL Data size = spam: ' + str(len(spam_en) + len(spam_tr)) + ' ham: ' + str(len(ham_en)+len(ham_tr)) + ' total: ' + str(len(allMails)) + ' emails')
+    
     all_features = []
-    tr_features = [(get_features(email, '', tp), label) for (email, label, lang) in tr_emails]
-    all_features += tr_features
-    print ('Collected ' + str(len(all_features)) + ' feature sets')
- 
-    # train the classifier
+    turkishFeatures = []
+    if zemberek:
+        turkishFeatures = [(util.extractFeaturesWZemberek(email, mode, tp), label) for (email, label) in turkishMails]
+    else :
+        turkishFeatures = [(util.extractFeatures(email, mode, tp), label) for (email, label) in turkishMails]
+    
+    englishFeatures = [(util.extractFeatures(email, mode, en), label) for (email, label) in englishMails]
+
+    all_features += turkishFeatures
+    all_features += englishFeatures
+        
     train_set, test_set, classifier = train(all_features, 0.8)
  
-    # evaluate its performance
-    evaluate(train_set, test_set, classifier)
+    print ('Accuracy on the training set = ' + str(classify.accuracy(classifier, train_set)))
+    print ('Accuracy of the test set = ' + str(classify.accuracy(classifier, test_set)))
+    classifier.show_most_informative_features(30)
+    
+    run(classifier, mode, zemberek)

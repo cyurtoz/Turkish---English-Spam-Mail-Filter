@@ -65,7 +65,7 @@ def pullout (m, key):
         cp = m.get_content_type()
         if cp=="text/plain": Text += m.get_payload(decode=False)
         elif cp=="text/html": 
-            Html += re.sub('<[^<]+?>', '', m.get_payload(decode=True).decode("ISO-8859-1")).replace('\n','').replace('>>', '')
+            Html += re.sub('<[^<]+?>', '', m.get_payload(decode=False)).replace('\n','').replace('>>', '')
 
         else:
             # Something else!
@@ -85,7 +85,6 @@ def pullout (m, key):
             cfn = construct_name(key, fn)
             Files[fn] = (cfn, id)
             if file_exists(cfn): return Text, Html, Files, 1
-            save_file(cfn, m.get_payload(decode=True))
         return Text, Html, Files, 1
     # This IS a multipart message.
     # So, we iterate over it and call pullout() recursively for each part.
