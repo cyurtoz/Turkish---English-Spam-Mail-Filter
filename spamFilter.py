@@ -57,7 +57,6 @@ if __name__ == "__main__":
     englishMails = []
     spam_en = util.extractEmlMails('data/english/spamassassin/spam/')
     spam_en += util.extractEmlMails('data/english/spamassassin/spam_2/')
-    ham_en = util.extractEmlMails('data/english/cscdm/ham/')
     ham_en = []
     ham_en += util.extractEmlMails('data/english/spamassassin/easy_ham/')
     ham_en += util.extractEmlMails('data/english/spamassassin/hard_ham/')
