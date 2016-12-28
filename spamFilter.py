@@ -37,8 +37,6 @@ def run(classifier, setting, zemberek):
 def train(features, samples_proportion):
     train_size = int(len(features) * samples_proportion)
     train_set, test_set = features[:train_size], features[train_size:]
-    print ('Training set size = ' + str(len(train_set)) + ' emails')
-    print ('Test set size = ' + str(len(test_set)) + ' emails')
     classifier = NaiveBayesClassifier.train(train_set)
     return train_set, test_set, classifier
  
