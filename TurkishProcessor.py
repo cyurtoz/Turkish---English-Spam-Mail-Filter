@@ -36,7 +36,7 @@ def preprocess(sentence, zemberek=False):
     else :   
         sentenceX =  word_tokenize(str(sentence).encode('utf-8').decode())
     for word in sentenceX:
-        wordx = stem(word.lower())
+        wordx = word.lower()
         wlist.append(wordx)
     return wlist
 
